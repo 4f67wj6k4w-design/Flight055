@@ -5,36 +5,53 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Полёт">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#0b1220">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <title>Лётные данные</title>
 <style>
-  :root{--bg:#0b1220;--card:#131c2e;--line:#22304a;--tx:#e8eef9;--mut:#8ea0bf;--acc:#4cc2ff;--ok:#4ade80;--bad:#f87171}
+  :root{--bg:#0b1220;--card:#131c2e;--line:#22304a;--tx:#e8eef9;--mut:#8ea0bf;--acc:#4cc2ff;--amb:#fbbf24;--ok:#4ade80;--bad:#f87171}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{margin:0;background:var(--bg);color:var(--tx);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
-  body{padding:max(14px,env(safe-area-inset-top)) 14px max(18px,env(safe-area-inset-bottom));max-width:520px;margin:0 auto}
+  body{padding:max(14px,env(safe-area-inset-top)) 14px max(24px,env(safe-area-inset-bottom));max-width:520px;margin:0 auto}
   header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
   h1{font-size:18px;margin:0;font-weight:600}
   .status{font-size:13px;color:var(--mut);display:flex;align-items:center;gap:6px}
   .dot{width:9px;height:9px;border-radius:50%;background:var(--mut)}
   .dot.on{background:var(--ok)}.dot.err{background:var(--bad)}
-  .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
   .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px}
   .card.wide{grid-column:span 2}
   .lbl{font-size:12px;color:var(--mut);text-transform:uppercase;letter-spacing:.06em}
   .val{font-size:44px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1;margin-top:4px}
-  .card.wide .val{font-size:68px}
+  .card.wide .val{font-size:64px}
   .unit{font-size:16px;color:var(--mut);font-weight:500;margin-left:4px}
   .sub{font-size:13px;color:var(--mut);margin-top:2px;font-variant-numeric:tabular-nums}
   .compass{display:flex;align-items:center;gap:14px}
   .rose{width:84px;height:84px;flex:none}
-  .row{display:flex;gap:8px;margin-top:12px}
+  .row{display:flex;gap:8px;margin-top:10px}
+  button,select,input{font:inherit}
   button{flex:1;background:var(--card);color:var(--tx);border:1px solid var(--line);border-radius:14px;padding:14px 8px;font-size:15px;font-weight:600}
   button.primary{background:var(--acc);color:#04121f;border-color:var(--acc)}
+  button.on{background:#12324a;border-color:var(--acc);color:var(--acc)}
   button:active{opacity:.7}
+  select,input[type=text]{width:100%;background:#0e1626;color:var(--tx);border:1px solid var(--line);border-radius:12px;padding:12px;font-size:16px;margin-top:8px}
   .msg{margin-top:12px;font-size:13px;color:var(--mut);line-height:1.45}
   .msg.err{color:var(--bad)}
   .up{color:var(--ok)}.down{color:var(--bad)}
+  canvas{width:100%;display:block;border-radius:12px;background:#0e1626;margin-top:10px}
+  #map{height:280px}#chart{height:210px}
+  .bar{height:8px;border-radius:4px;background:#0e1626;margin-top:10px;overflow:hidden}
+  .bar>i{display:block;height:100%;width:0;background:var(--acc);transition:width .5s}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+  .two .val{font-size:30px}
+  .legend{font-size:12px;color:var(--mut);margin-top:8px}
+  .legend b{display:inline-block;width:10px;height:10px;border-radius:2px;margin:0 4px 0 10px;vertical-align:-1px}
+  .legend b:first-child{margin-left:0}
+  h2{font-size:15px;margin:0;font-weight:600}
 </style>
 </head>
 <body>
@@ -81,183 +98,508 @@
       </div>
     </div>
   </div>
-  <div class="card wide">
-    <div class="lbl">Координаты</div>
-    <div class="sub" style="font-size:16px;color:var(--tx);margin-top:6px" id="pos">—</div>
-    <div class="sub" id="acc">точность —</div>
+</div>
+
+<div class="card">
+  <h2>Пункт назначения</h2>
+  <select id="dest"></select>
+  <input type="text" id="destCustom" placeholder="Широта, долгота. Например: 55.75, 37.62" style="display:none" autocomplete="off">
+  <div class="two">
+    <div><div class="lbl">Осталось</div><div class="val"><span id="rem">—</span><span class="unit" id="remU">км</span></div></div>
+    <div><div class="lbl">Прибытие</div><div class="val"><span id="eta">—</span></div><div class="sub" id="etaSub">&nbsp;</div></div>
   </div>
+  <div class="bar"><i id="prog"></i></div>
+  <div class="sub" id="progT">&nbsp;</div>
+</div>
+
+<div class="card" style="margin-top:10px">
+  <h2>Карта маршрута</h2>
+  <canvas id="map"></canvas>
+  <div class="sub" id="pos" style="margin-top:8px">—</div>
+  <div class="sub" id="acc">точность —</div>
+</div>
+
+<div class="card" style="margin-top:10px">
+  <h2>График полёта</h2>
+  <canvas id="chart"></canvas>
+  <div class="legend"><b style="background:var(--acc)"></b><span id="lgA">высота</span><b style="background:var(--amb)"></b><span id="lgS">скорость</span></div>
 </div>
 
 <div class="row">
   <button class="primary" id="go">Старт</button>
+  <button id="demo">Демо-режим</button>
+</div>
+<div class="row">
+  <button id="voice">Голос: выкл</button>
   <button id="units">Единицы: метрич.</button>
 </div>
 <div class="row">
-  <button id="demo">Демо-режим</button>
-  <button id="reset">Сбросить</button>
+  <button id="csv">Экспорт CSV</button>
+  <button id="gpx">Экспорт GPX</button>
 </div>
-<div class="msg" id="msg">Нажмите «Старт» и разрешите доступ к геолокации. В самолёте GPS работает в режиме полёта, лучше сидеть у окна.</div>
+<div class="row">
+  <button id="reset">Сбросить полёт</button>
+</div>
+<div class="msg" id="msg">Выберите пункт назначения, нажмите «Старт» и разрешите доступ к геолокации. В самолёте GPS работает в режиме полёта, лучше сидеть у окна. Запись полёта сохраняется в телефоне автоматически.</div>
 
 <script>
 (function(){
   var $ = function(id){return document.getElementById(id)};
-  var aviation = false, watchId = null, demoTimer = null, wake = null, running = false;
-  var S = null; // state
+  var RAD = Math.PI/180;
+  var AIRPORTS = [
+    ['SVO','Москва, Шереметьево',55.9726,37.4146],['DME','Москва, Домодедово',55.4088,37.9063],['VKO','Москва, Внуково',55.5915,37.2615],['ZIA','Москва, Жуковский',55.5533,38.15],
+    ['LED','Санкт-Петербург, Пулково',59.8003,30.2625],['AER','Сочи',43.4499,39.9566],['KZN','Казань',55.6062,49.2787],['SVX','Екатеринбург, Кольцово',56.7431,60.8027],
+    ['OVB','Новосибирск, Толмачёво',55.0126,82.6507],['OMS','Омск, Центральный',54.967,73.3105],['KRR','Краснодар, Пашковский',45.0347,39.1705],['ROV','Ростов-на-Дону, Платов',47.4939,39.9246],
+    ['UFA','Уфа',54.5575,55.8744],['KUF','Самара, Курумоч',53.5049,50.1643],['GOJ','Нижний Новгород',56.2301,43.784],['VOG','Волгоград',48.7825,44.3455],
+    ['KJA','Красноярск, Емельяново',56.1729,92.4933],['IKT','Иркутск',52.268,104.3889],['VVO','Владивосток',43.399,132.148],['KHV','Хабаровск',48.528,135.188],
+    ['KGD','Калининград, Храброво',54.89,20.5926],['MRV','Минеральные Воды',44.2251,43.0819],['KEJ','Кемерово',55.27,86.1072],['TJM','Тюмень, Рощино',57.1896,65.3243],
+    ['CEK','Челябинск',55.3058,61.5033],['PEE','Пермь, Большое Савино',57.9145,56.0212],['VOZ','Воронеж',51.8142,39.2296],['ARH','Архангельск, Талаги',64.6003,40.7167],
+    ['MMK','Мурманск',68.7817,32.7508],['MSQ','Минск',53.8825,28.0307],['IST','Стамбул',41.2753,28.7519],['AYT','Анталья',36.8987,30.8005],
+    ['DXB','Дубай',25.2532,55.3657],['TBS','Тбилиси',41.6692,44.9547],['EVN','Ереван',40.1473,44.3959],['GYD','Баку',40.4675,50.0467],
+    ['TAS','Ташкент',41.2579,69.2812],['ALA','Алматы',43.3521,77.0405],['NQZ','Астана',51.0222,71.4669],['PEK','Пекин',40.0801,116.5846],
+    ['BKK','Бангкок',13.69,100.7501],['HKT','Пхукет',8.1132,98.3169],['FRA','Франкфурт',50.0379,8.5622],['CDG','Париж, Шарль-де-Голль',49.0097,2.5479],
+    ['LHR','Лондон, Хитроу',51.47,-0.4543],['JFK','Нью-Йорк, Кеннеди',40.6413,-73.7781]
+  ];
+  var STORE_KEY='flight_v2';
+  var aviation=false, voiceOn=false, watchId=null, demoTimer=null, wake=null, running=false, destSel='', lastSave=0;
+  var track=[]; // {ts,lat,lon,alt,spd,hdg}
+  var S=null, lastStoredTs=0;
 
-  function fresh(){ return {maxSpd:0,maxAlt:null,dist:0,last:null,altHist:[],t0:null}; }
-  S = fresh();
+  function fresh(){ return {maxSpd:0,maxAlt:null,dist:0,last:null,altHist:[],t0:null,origin:null,lastRem:null,arrived:false}; }
+  S=fresh();
 
-  function setStatus(txt, cls){ $('st').textContent = txt; $('dot').className = 'dot ' + (cls||''); }
-  function msg(txt, err){ var m = $('msg'); m.textContent = txt; m.className = 'msg' + (err?' err':''); }
+  /* ---------- единицы ---------- */
+  function spdOut(ms){return aviation?ms*1.943844:ms*3.6}
+  function altOut(m){return aviation?m*3.28084:m}
+  function vsOut(ms){return aviation?ms*196.8504:ms}
+  function distOut(m){return aviation?m/1852:m/1000}
+  function nf(x){return Math.round(x).toLocaleString('ru-RU')}
 
+  function setStatus(txt,cls){$('st').textContent=txt;$('dot').className='dot '+(cls||'')}
+  function msg(txt,err){var m=$('msg');m.textContent=txt;m.className='msg'+(err?' err':'')}
+
+  /* ---------- география ---------- */
   function haversine(a,b){
-    var R=6371000, r=Math.PI/180;
-    var dLat=(b.lat-a.lat)*r, dLon=(b.lon-a.lon)*r;
-    var x=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(a.lat*r)*Math.cos(b.lat*r)*Math.sin(dLon/2)*Math.sin(dLon/2);
+    var R=6371000,dLat=(b.lat-a.lat)*RAD,dLon=(b.lon-a.lon)*RAD;
+    var x=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(a.lat*RAD)*Math.cos(b.lat*RAD)*Math.sin(dLon/2)*Math.sin(dLon/2);
     return 2*R*Math.asin(Math.sqrt(x));
   }
   function bearing(a,b){
-    var r=Math.PI/180, y=Math.sin((b.lon-a.lon)*r)*Math.cos(b.lat*r);
-    var x=Math.cos(a.lat*r)*Math.sin(b.lat*r)-Math.sin(a.lat*r)*Math.cos(b.lat*r)*Math.cos((b.lon-a.lon)*r);
-    return (Math.atan2(y,x)/r+360)%360;
+    var y=Math.sin((b.lon-a.lon)*RAD)*Math.cos(b.lat*RAD);
+    var x=Math.cos(a.lat*RAD)*Math.sin(b.lat*RAD)-Math.sin(a.lat*RAD)*Math.cos(b.lat*RAD)*Math.cos((b.lon-a.lon)*RAD);
+    return (Math.atan2(y,x)/RAD+360)%360;
   }
-  function compassName(d){
-    var n=['С','СВ','В','ЮВ','Ю','ЮЗ','З','СЗ']; return n[Math.round(d/45)%8];
-  }
-  function fmtCoord(v,pos,neg){ return Math.abs(v).toFixed(4)+'° '+(v>=0?pos:neg); }
+  function compassName(d){return ['С','СВ','В','ЮВ','Ю','ЮЗ','З','СЗ'][Math.round(d/45)%8]}
+  function fmtCoord(v,pos,neg){return Math.abs(v).toFixed(4)+'° '+(v>=0?pos:neg)}
+  function hms(sec){sec=Math.max(0,Math.floor(sec));var h=Math.floor(sec/3600),m=Math.floor(sec%3600/60),s=sec%60;return [h,m,s].map(function(x){return String(x).padStart(2,'0')}).join(':')}
 
+  /* ---------- пункт назначения ---------- */
+  function buildDest(){
+    var sel=$('dest'),h='<option value="">— выберите —</option>';
+    AIRPORTS.forEach(function(a){h+='<option value="'+a[0]+'">'+a[0]+' · '+a[1]+'</option>'});
+    h+='<option value="custom">Свои координаты…</option>';
+    sel.innerHTML=h;
+  }
+  function parseCustom(s){
+    var m=String(s||'').replace(/,/g,' ').replace(/;/g,' ').trim().split(/\s+/);
+    if(m.length<2)return null;
+    var la=parseFloat(m[0]),lo=parseFloat(m[1]);
+    if(isNaN(la)||isNaN(lo)||Math.abs(la)>90||Math.abs(lo)>180)return null;
+    return {name:'Точка',lat:la,lon:lo};
+  }
+  function getDest(){
+    if(!destSel)return null;
+    if(destSel.indexOf('custom:')===0){var c=parseCustom(destSel.slice(7));return c;}
+    for(var i=0;i<AIRPORTS.length;i++){if(AIRPORTS[i][0]===destSel)return {name:AIRPORTS[i][0],lat:AIRPORTS[i][2],lon:AIRPORTS[i][3]}}
+    return null;
+  }
+  $('dest').onchange=function(){
+    var v=this.value;
+    if(v==='custom'){$('destCustom').style.display='block';destSel='';$('destCustom').focus();}
+    else{$('destCustom').style.display='none';destSel=v;}
+    S.lastRem=null;S.arrived=false;
+    render();save(true);
+  };
+  $('destCustom').oninput=function(){
+    var c=parseCustom(this.value);
+    destSel=c?'custom:'+c.lat+','+c.lon:'';
+    S.lastRem=null;S.arrived=false;
+    render();save(true);
+  };
+
+  /* ---------- голос ---------- */
+  function say(text){
+    if(!voiceOn||!('speechSynthesis' in window))return;
+    try{
+      var u=new SpeechSynthesisUtterance(text);u.lang='ru-RU';u.rate=1;
+      window.speechSynthesis.cancel();window.speechSynthesis.speak(u);
+    }catch(e){}
+  }
+  function altThresholds(){
+    return aviation?[5000,10000,15000,20000,25000,30000,35000,40000].map(function(f){return {v:f/3.28084,say:f,unit:'футов'}})
+                   :[1000,2000,3000,5000,7000,9000,10000,11000].map(function(m){return {v:m,say:m,unit:'метров'}});
+  }
+  var prevAlt=null;
+  function announceAlt(alt){
+    if(prevAlt!=null){
+      altThresholds().forEach(function(t){
+        if(prevAlt<t.v&&alt>=t.v)say('Набор высоты. Пересекаем '+t.say+' '+t.unit);
+        else if(prevAlt>t.v&&alt<=t.v)say('Снижение. Пересекаем '+t.say+' '+t.unit);
+      });
+    }
+    prevAlt=alt;
+  }
+  function announceRem(remM){
+    var r=distOut(remM),unit=aviation?'морских миль':'километров';
+    if(S.lastRem!=null){
+      [500,200,100,50,20].forEach(function(t){
+        if(S.lastRem>t&&r<=t)say('До пункта назначения осталось '+t+' '+unit);
+      });
+      if(!S.arrived&&remM<3000){S.arrived=true;say('Вы прибыли в пункт назначения');}
+    }
+    S.lastRem=r;
+  }
+
+  /* ---------- обновление данных ---------- */
   function update(p){
-    // p: {lat,lon,alt,speed(m/s)|null,heading|null,acc,altAcc,ts}
-    if(!S.t0) S.t0 = p.ts;
-    var spd = p.speed;
+    if(!S.t0)S.t0=p.ts;
+    if(!S.origin)S.origin={lat:p.lat,lon:p.lon};
+    var spd=p.speed,hdg=p.heading;
     if(S.last){
-      var d = haversine(S.last,p), dt=(p.ts-S.last.ts)/1000;
+      var d=haversine(S.last,p),dt=(p.ts-S.last.ts)/1000;
       if(dt>0){
-        if(spd==null || isNaN(spd)) spd = d/dt;
-        if(d>3) S.dist += d; // отсечь дрожание на месте
-        if(p.heading==null && d>5) p.heading = bearing(S.last,p);
+        if(spd==null||isNaN(spd))spd=d/dt;
+        if(d>3)S.dist+=d;
+        if((hdg==null||isNaN(hdg))&&d>5)hdg=bearing(S.last,p);
       }
     }
-    S.last = p;
+    if(hdg!=null&&isNaN(hdg))hdg=null;
+    if(spd!=null&&isNaN(spd))spd=null;
+    p.speed=spd;p.heading=hdg;
+    if(spd!=null&&spd>S.maxSpd)S.maxSpd=spd;
+    var alt=(p.alt!=null&&!isNaN(p.alt))?p.alt:null;
+    if(alt!=null&&(S.maxAlt==null||alt>S.maxAlt))S.maxAlt=alt;
+    p.alt=alt;
+    S.last=p;
 
-    // скорость
-    if(spd!=null && !isNaN(spd)){
-      var v = aviation ? spd*1.943844 : spd*3.6;
-      if(v>S.maxSpd) S.maxSpd=v;
-      $('spd').textContent = Math.round(v);
-      $('spdSub').textContent = 'макс. '+Math.round(S.maxSpd)+' · '+(aviation? Math.round(spd*3.6)+' км/ч' : Math.round(spd*1.943844)+' уз');
+    if(alt!=null){
+      S.altHist.push({t:p.ts,a:alt});
+      while(S.altHist.length>2&&p.ts-S.altHist[0].t>12000)S.altHist.shift();
+      announceAlt(alt);
     }
-    $('spdU').textContent = aviation?'уз':'км/ч';
-
-    // высота
-    if(p.alt!=null && !isNaN(p.alt)){
-      var a = aviation ? p.alt*3.28084 : p.alt;
-      if(S.maxAlt==null || a>S.maxAlt) S.maxAlt=a;
-      $('alt').textContent = Math.round(a).toLocaleString('ru-RU');
-      $('altSub').textContent = 'макс. '+Math.round(S.maxAlt).toLocaleString('ru-RU')+' · '+(aviation? Math.round(p.alt).toLocaleString('ru-RU')+' м' : Math.round(p.alt*3.28084).toLocaleString('ru-RU')+' фт');
-      // вертикальная скорость по окну ~12 с
-      S.altHist.push({t:p.ts,a:p.alt});
-      while(S.altHist.length>1 && p.ts-S.altHist[0].t>12000) S.altHist.shift();
-      var f=S.altHist[0];
-      if(p.ts-f.t>=3000){
-        var vs=(p.alt-f.a)/((p.ts-f.t)/1000); // м/с
-        var shown = aviation ? vs*196.8504 : vs;
-        var el=$('vs');
-        el.textContent = (shown>0?'+':'')+(aviation?Math.round(shown):shown.toFixed(1));
-        el.className = Math.abs(vs)<0.3?'':(vs>0?'up':'down');
-        $('vsSub').textContent = Math.abs(vs)<0.3?'горизонтальный полёт':(vs>0?'набор':'снижение');
-      }
-    } else {
-      $('alt').textContent='—'; $('altSub').textContent='GPS не отдаёт высоту';
+    if(p.ts-lastStoredTs>=2000||!track.length){
+      track.push({ts:p.ts,lat:p.lat,lon:p.lon,alt:alt,spd:spd,hdg:hdg});
+      if(track.length>20000)track.splice(1,1);
+      lastStoredTs=p.ts;
     }
-    $('altU').textContent = aviation?'фт':'м';
-    $('vsU').textContent = aviation?'фт/мин':'м/с';
-
-    // курс
-    if(p.heading!=null && !isNaN(p.heading)){
-      $('hdg').textContent = Math.round(p.heading);
-      $('hdgT').textContent = compassName(p.heading);
-      $('needle').style.transform='rotate('+p.heading+'deg)';
-    }
-
-    // пройдено
-    var km = S.dist/1000;
-    $('dist').textContent = aviation ? (km/1.852).toFixed(1) : km.toFixed(1);
-    $('distU').textContent = aviation?'м. миль':'км';
-    var sec=Math.floor((p.ts-S.t0)/1000), h=Math.floor(sec/3600), m=Math.floor(sec%3600/60), s=sec%60;
-    $('time').textContent = [h,m,s].map(function(x){return String(x).padStart(2,'0')}).join(':');
-
-    $('pos').textContent = fmtCoord(p.lat,'с.ш.','ю.ш.')+'  '+fmtCoord(p.lon,'в.д.','з.д.');
-    $('acc').textContent = 'точность ±'+Math.round(p.acc||0)+' м';
+    var dest=getDest();
+    if(dest)announceRem(haversine(p,dest));
+    render();
+    save(false);
   }
 
+  function avgSpeed(){
+    if(!track.length)return null;
+    var end=track[track.length-1].ts,sum=0,n=0;
+    for(var i=track.length-1;i>=0&&end-track[i].ts<=90000;i--){
+      if(track[i].spd!=null){sum+=track[i].spd;n++;}
+    }
+    return n?sum/n:null;
+  }
+
+  /* ---------- отрисовка текста ---------- */
+  function render(){
+    var p=S.last;
+    $('spdU').textContent=aviation?'уз':'км/ч';
+    $('altU').textContent=aviation?'фт':'м';
+    $('vsU').textContent=aviation?'фт/мин':'м/с';
+    $('distU').textContent=aviation?'м. миль':'км';
+    $('remU').textContent=aviation?'м. миль':'км';
+    $('lgA').textContent='высота, '+(aviation?'фт':'м');
+    $('lgS').textContent='скорость, '+(aviation?'уз':'км/ч');
+    if(p){
+      if(p.speed!=null){
+        $('spd').textContent=nf(spdOut(p.speed));
+        $('spdSub').textContent='макс. '+nf(spdOut(S.maxSpd))+' · '+(aviation?nf(p.speed*3.6)+' км/ч':nf(p.speed*1.943844)+' уз');
+      }
+      if(p.alt!=null){
+        $('alt').textContent=nf(altOut(p.alt));
+        $('altSub').textContent='макс. '+nf(altOut(S.maxAlt))+' · '+(aviation?nf(p.alt)+' м':nf(p.alt*3.28084)+' фт');
+        var f=S.altHist[0];
+        if(f&&p.ts-f.t>=3000){
+          var vs=(p.alt-f.a)/((p.ts-f.t)/1000),sh=vsOut(vs),el=$('vs');
+          el.textContent=(sh>0?'+':'')+(aviation?Math.round(sh):sh.toFixed(1));
+          el.className=Math.abs(vs)<0.3?'':(vs>0?'up':'down');
+          $('vsSub').textContent=Math.abs(vs)<0.3?'горизонтальный полёт':(vs>0?'набор':'снижение');
+        }
+      }else{$('alt').textContent='—';$('altSub').textContent='GPS не отдаёт высоту';}
+      if(p.heading!=null){
+        $('hdg').textContent=Math.round(p.heading);$('hdgT').textContent=compassName(p.heading);
+        $('needle').style.transform='rotate('+p.heading+'deg)';
+      }
+      $('dist').textContent=distOut(S.dist).toFixed(1);
+      $('time').textContent=hms((p.ts-S.t0)/1000);
+      $('pos').textContent=fmtCoord(p.lat,'с.ш.','ю.ш.')+'  '+fmtCoord(p.lon,'в.д.','з.д.');
+      $('acc').textContent='точность ±'+Math.round(p.acc||0)+' м';
+    }
+    // пункт назначения
+    var dest=getDest();
+    if(dest&&p){
+      var rem=haversine(p,dest);
+      $('rem').textContent=distOut(rem).toFixed(distOut(rem)<100?1:0);
+      var avg=avgSpeed();
+      if(avg!=null&&avg>=27.8){
+        var sec=rem/avg,h=Math.floor(sec/3600),m=Math.round(sec%3600/60);
+        if(m===60){h++;m=0;}
+        $('eta').textContent=(h?h+' ч ':'')+m+' мин';
+        $('etaSub').textContent='в '+new Date(p.ts+sec*1000).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})+' по времени телефона';
+      }else{$('eta').textContent='—';$('etaSub').textContent='нужна скорость от 100 км/ч';}
+      var total=S.origin?haversine(S.origin,dest):0,pr=total>0?Math.max(0,Math.min(1,1-rem/total)):0;
+      $('prog').style.width=(pr*100)+'%';
+      $('progT').textContent='пройдено '+Math.round(pr*100)+'% пути до '+dest.name;
+    }else{
+      $('rem').textContent='—';$('eta').textContent='—';$('etaSub').innerHTML='&nbsp;';
+      $('prog').style.width='0';$('progT').textContent=dest?'':'Выберите пункт назначения';
+    }
+    drawMap();drawChart();
+  }
+
+  /* ---------- карта (рисуется без интернета) ---------- */
+  function setupCanvas(cv){
+    var dpr=window.devicePixelRatio||1,w=cv.clientWidth,h=cv.clientHeight;
+    if(cv.width!==Math.round(w*dpr)||cv.height!==Math.round(h*dpr)){cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr);}
+    var g=cv.getContext('2d');g.setTransform(dpr,0,0,dpr,0,0);g.clearRect(0,0,w,h);
+    return {g:g,w:w,h:h};
+  }
+  function drawMap(){
+    var c=setupCanvas($('map')),g=c.g,w=c.w,h=c.h,dest=getDest();
+    var pts=track.slice();
+    if(S.last&&(!pts.length||pts[pts.length-1].ts!==S.last.ts))pts.push(S.last);
+    if(!pts.length&&!dest){g.fillStyle='#8ea0bf';g.font='14px sans-serif';g.textAlign='center';g.fillText('Маршрут появится после старта',w/2,h/2);return;}
+    var all=pts.slice();if(dest)all.push(dest);
+    var lat0=0;all.forEach(function(q){lat0+=q.lat});lat0/=all.length;
+    var kx=Math.cos(lat0*RAD),minX=1e9,maxX=-1e9,minY=1e9,maxY=-1e9;
+    all.forEach(function(q){var x=q.lon*kx,y=-q.lat;if(x<minX)minX=x;if(x>maxX)maxX=x;if(y<minY)minY=y;if(y>maxY)maxY=y;});
+    var spanX=Math.max(maxX-minX,0.05),spanY=Math.max(maxY-minY,0.05),pad=34;
+    var sc=Math.min((w-2*pad)/spanX,(h-2*pad)/spanY),cx=(minX+maxX)/2,cy=(minY+maxY)/2;
+    function X(q){return w/2+(q.lon*kx-cx)*sc}
+    function Y(q){return h/2+(-q.lat-cy)*sc}
+    // сетка
+    g.strokeStyle='#18243a';g.lineWidth=1;
+    for(var gx=0;gx<=w;gx+=w/6){g.beginPath();g.moveTo(gx,0);g.lineTo(gx,h);g.stroke();}
+    for(var gy=0;gy<=h;gy+=h/4){g.beginPath();g.moveTo(0,gy);g.lineTo(w,gy);g.stroke();}
+    // масштаб
+    var kmPerPx=111.32/sc,targets=[1,2,5,10,20,50,100,200,500,1000,2000,5000],bar=targets[0];
+    for(var i=0;i<targets.length;i++){if(targets[i]/kmPerPx<=w*0.3)bar=targets[i];}
+    var bw=bar/kmPerPx;g.strokeStyle='#8ea0bf';g.lineWidth=2;g.beginPath();g.moveTo(12,h-14);g.lineTo(12+bw,h-14);g.stroke();
+    g.fillStyle='#8ea0bf';g.font='11px sans-serif';g.textAlign='left';g.fillText(bar+' км',12,h-20);
+    g.fillText('С ↑',w-30,16);
+    // трек
+    if(pts.length){
+      g.strokeStyle='#4cc2ff';g.lineWidth=3;g.lineJoin='round';g.beginPath();
+      pts.forEach(function(q,i){if(i===0)g.moveTo(X(q),Y(q));else g.lineTo(X(q),Y(q));});g.stroke();
+      g.fillStyle='#4ade80';g.beginPath();g.arc(X(pts[0]),Y(pts[0]),5,0,7);g.fill();
+    }
+    var cur=pts[pts.length-1];
+    // линия до цели
+    if(dest){
+      if(cur){g.setLineDash([6,6]);g.strokeStyle='#fbbf24';g.lineWidth=2;g.beginPath();g.moveTo(X(cur),Y(cur));g.lineTo(X(dest),Y(dest));g.stroke();g.setLineDash([]);}
+      g.fillStyle='#f87171';g.beginPath();g.arc(X(dest),Y(dest),7,0,7);g.fill();
+      g.strokeStyle='#fff';g.lineWidth=2;g.beginPath();g.arc(X(dest),Y(dest),7,0,7);g.stroke();
+      g.fillStyle='#e8eef9';g.font='bold 12px sans-serif';g.textAlign='center';g.fillText(dest.name,Math.max(24,Math.min(w-24,X(dest))),Y(dest)-12);
+    }
+    // самолёт
+    if(cur){
+      var hd=(cur.heading!=null?cur.heading:(cur.hdg!=null?cur.hdg:0));
+      g.save();g.translate(X(cur),Y(cur));g.rotate(hd*RAD);
+      g.fillStyle='#ffffff';g.strokeStyle='#0b1220';g.lineWidth=1.5;
+      g.beginPath();g.moveTo(0,-12);g.lineTo(3,-3);g.lineTo(11,3);g.lineTo(11,6);g.lineTo(3,4);g.lineTo(2,9);g.lineTo(5,11);g.lineTo(5,13);g.lineTo(0,12);g.lineTo(-5,13);g.lineTo(-5,11);g.lineTo(-2,9);g.lineTo(-3,4);g.lineTo(-11,6);g.lineTo(-11,3);g.lineTo(-3,-3);g.closePath();
+      g.fill();g.stroke();g.restore();
+    }
+  }
+
+  /* ---------- график ---------- */
+  function niceMax(v){if(v<=0)return 1;var p=Math.pow(10,Math.floor(Math.log10(v))),n=v/p;n=n<=1?1:n<=2?2:n<=5?5:10;return n*p;}
+  function drawChart(){
+    var c=setupCanvas($('chart')),g=c.g,w=c.w,h=c.h;
+    if(track.length<2){g.fillStyle='#8ea0bf';g.font='14px sans-serif';g.textAlign='center';g.fillText('График появится после начала записи',w/2,h/2);return;}
+    var L=44,R=44,T=14,B=26,pw=w-L-R,ph=h-T-B;
+    var step=Math.max(1,Math.ceil(track.length/500)),pts=[];
+    for(var i=0;i<track.length;i+=step)pts.push(track[i]);
+    var last=track[track.length-1];if(pts[pts.length-1]!==last)pts.push(last);
+    var t0=pts[0].ts,t1=pts[pts.length-1].ts,dt=Math.max(1,t1-t0);
+    var maxA=0,maxS=0;
+    pts.forEach(function(q){if(q.alt!=null)maxA=Math.max(maxA,altOut(q.alt));if(q.spd!=null)maxS=Math.max(maxS,spdOut(q.spd));});
+    maxA=niceMax(maxA);maxS=niceMax(maxS);
+    g.font='11px sans-serif';
+    for(var k=0;k<=4;k++){
+      var y=T+ph*k/4;g.strokeStyle='#18243a';g.lineWidth=1;g.beginPath();g.moveTo(L,y);g.lineTo(L+pw,y);g.stroke();
+      g.textAlign='right';g.fillStyle='#4cc2ff';g.fillText(nf(maxA*(1-k/4)),L-5,y+4);
+      g.textAlign='left';g.fillStyle='#fbbf24';g.fillText(nf(maxS*(1-k/4)),L+pw+5,y+4);
+    }
+    g.fillStyle='#8ea0bf';g.textAlign='center';
+    [0,0.5,1].forEach(function(f){var x=L+pw*f,s=Math.round(dt*f/1000),hh=Math.floor(s/3600),mm=Math.floor(s%3600/60);g.fillText(hh+':'+String(mm).padStart(2,'0'),Math.max(L+12,Math.min(L+pw-12,x)),h-8);});
+    function line(key,conv,max,color){
+      g.strokeStyle=color;g.lineWidth=2;g.lineJoin='round';g.beginPath();var started=false;
+      pts.forEach(function(q){
+        if(q[key]==null)return;
+        var x=L+pw*(q.ts-t0)/dt,y=T+ph*(1-conv(q[key])/max);
+        if(!started){g.moveTo(x,y);started=true;}else g.lineTo(x,y);
+      });g.stroke();
+    }
+    line('alt',altOut,maxA,'#4cc2ff');line('spd',spdOut,maxS,'#fbbf24');
+  }
+
+  /* ---------- сохранение и экспорт ---------- */
+  function save(force){
+    var now=Date.now();
+    if(!force&&now-lastSave<15000)return;
+    lastSave=now;
+    try{
+      var tr=track.map(function(q){return [q.ts,+q.lat.toFixed(5),+q.lon.toFixed(5),q.alt==null?null:Math.round(q.alt),q.spd==null?null:+q.spd.toFixed(1),q.hdg==null?null:Math.round(q.hdg)]});
+      localStorage.setItem(STORE_KEY,JSON.stringify({track:tr,dest:destSel}));
+    }catch(e){}
+  }
+  function recompute(){
+    S=fresh();prevAlt=null;
+    if(!track.length)return;
+    S.t0=track[0].ts;S.origin={lat:track[0].lat,lon:track[0].lon};
+    var prev=null;
+    track.forEach(function(q){
+      if(prev){var d=haversine(prev,q);if(d>3)S.dist+=d;}
+      if(q.spd!=null&&q.spd>S.maxSpd)S.maxSpd=q.spd;
+      if(q.alt!=null&&(S.maxAlt==null||q.alt>S.maxAlt))S.maxAlt=q.alt;
+      prev=q;
+    });
+    var l=track[track.length-1];
+    S.last={ts:l.ts,lat:l.lat,lon:l.lon,alt:l.alt,speed:l.spd,heading:l.hdg,acc:0};
+    for(var i=Math.max(0,track.length-8);i<track.length;i++){if(track[i].alt!=null&&l.ts-track[i].ts<=12000)S.altHist.push({t:track[i].ts,a:track[i].alt});}
+    lastStoredTs=l.ts;
+  }
+  function load(){
+    try{
+      var raw=localStorage.getItem(STORE_KEY);if(!raw)return false;
+      var o=JSON.parse(raw);
+      track=(o.track||[]).map(function(a){return {ts:a[0],lat:a[1],lon:a[2],alt:a[3],spd:a[4],hdg:a[5]}});
+      destSel=o.dest||'';
+      return track.length>0||!!destSel;
+    }catch(e){return false;}
+  }
+  function syncDestUI(){
+    var sel=$('dest');
+    if(destSel.indexOf('custom:')===0){sel.value='custom';$('destCustom').style.display='block';$('destCustom').value=destSel.slice(7).replace(',',', ');}
+    else{sel.value=destSel;$('destCustom').style.display='none';}
+  }
+  function dl(name,text,mime){
+    try{
+      var b=new Blob([text],{type:mime}),a=document.createElement('a');
+      a.href=URL.createObjectURL(b);a.download=name;document.body.appendChild(a);a.click();
+      setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},1500);
+    }catch(e){msg('Не удалось сохранить файл: '+e.message,true);}
+  }
+  function stamp(){var d=new Date(track[0].ts);return d.getFullYear()+String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0')+'_'+String(d.getHours()).padStart(2,'0')+String(d.getMinutes()).padStart(2,'0');}
+  $('csv').onclick=function(){
+    if(!track.length){msg('Пока нечего экспортировать: запись пуста.',true);return;}
+    var rows=['time_utc,lat,lon,alt_m,speed_kmh,heading_deg'];
+    track.forEach(function(q){rows.push([new Date(q.ts).toISOString(),q.lat.toFixed(6),q.lon.toFixed(6),q.alt==null?'':q.alt.toFixed(0),q.spd==null?'':(q.spd*3.6).toFixed(1),q.hdg==null?'':Math.round(q.hdg)].join(','))});
+    dl('flight_'+stamp()+'.csv',rows.join('\n'),'text/csv');msg('Файл CSV сохранён в загрузки.');
+  };
+  $('gpx').onclick=function(){
+    if(!track.length){msg('Пока нечего экспортировать: запись пуста.',true);return;}
+    var x='<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="Лётные данные" xmlns="http://www.topografix.com/GPX/1/1">\n<trk><name>Полёт '+new Date(track[0].ts).toLocaleString('ru-RU')+'</name><trkseg>\n';
+    track.forEach(function(q){x+='<trkpt lat="'+q.lat.toFixed(6)+'" lon="'+q.lon.toFixed(6)+'">'+(q.alt==null?'':'<ele>'+q.alt.toFixed(0)+'</ele>')+'<time>'+new Date(q.ts).toISOString()+'</time></trkpt>\n';});
+    x+='</trkseg></trk></gpx>';
+    dl('flight_'+stamp()+'.gpx',x,'application/gpx+xml');msg('Файл GPX сохранён в загрузки. Его можно открыть в любом приложении с картами.');
+  };
+
+  /* ---------- GPS ---------- */
   function onPos(pos){
-    var c=pos.coords;
-    setStatus('GPS онлайн','on');
-    update({lat:c.latitude,lon:c.longitude,alt:c.altitude,speed:c.speed,heading:c.heading,acc:c.accuracy,altAcc:c.altitudeAccuracy,ts:pos.timestamp||Date.now()});
+    var c=pos.coords;setStatus('GPS онлайн','on');
+    update({lat:c.latitude,lon:c.longitude,alt:c.altitude,speed:c.speed,heading:c.heading,acc:c.accuracy,ts:pos.timestamp||Date.now()});
   }
   function onErr(e){
     var t={1:'Доступ к геолокации запрещён. Разрешите его в настройках браузера для этого сайта.',2:'Позиция недоступна. Подойдите к окну: GPS плохо ловит внутри салона.',3:'Долго нет сигнала GPS. Подождите или подойдите к окну.'}[e.code]||e.message;
-    setStatus('нет сигнала','err'); msg(t,true);
-    if(e.code===1) stop();
+    setStatus('нет сигнала','err');msg(t,true);
+    if(e.code===1)stop();
   }
+  async function lockScreen(){try{if('wakeLock' in navigator)wake=await navigator.wakeLock.request('screen');}catch(e){}}
+  function unlockScreen(){try{if(wake){wake.release();wake=null;}}catch(e){}}
 
-  async function lockScreen(){
-    try{ if('wakeLock' in navigator){ wake = await navigator.wakeLock.request('screen'); } }catch(e){}
-  }
-  function unlockScreen(){ try{ if(wake){ wake.release(); wake=null; } }catch(e){} }
-
+  function newFlight(){track=[];lastStoredTs=0;S=fresh();prevAlt=null;}
   function startGPS(){
-    if(!('geolocation' in navigator)){ msg('Этот браузер не поддерживает геолокацию.',true); return; }
-    if(!window.isSecureContext){ msg('Геолокация работает только по HTTPS. Откройте приложение по https-ссылке.',true); return; }
-    setStatus('ищу спутники…',''); msg('Ищу GPS, это может занять до минуты.');
-    watchId = navigator.geolocation.watchPosition(onPos,onErr,{enableHighAccuracy:true,maximumAge:0,timeout:30000});
-    running = true; $('go').textContent='Стоп'; lockScreen();
+    if(!('geolocation' in navigator)){msg('Этот браузер не поддерживает геолокацию.',true);return;}
+    if(!window.isSecureContext){msg('Геолокация работает только по HTTPS. Откройте приложение по https-ссылке.',true);return;}
+    if(track.length&&Date.now()-track[track.length-1].ts>6*3600*1000){newFlight();}
+    else if(track.length){recompute();}
+    setStatus('ищу спутники…','');msg('Ищу GPS, это может занять до минуты.');
+    watchId=navigator.geolocation.watchPosition(onPos,onErr,{enableHighAccuracy:true,maximumAge:0,timeout:30000});
+    running=true;$('go').textContent='Стоп';lockScreen();
   }
   function stop(){
-    if(watchId!=null){ navigator.geolocation.clearWatch(watchId); watchId=null; }
-    if(demoTimer){ clearInterval(demoTimer); demoTimer=null; }
-    running=false; $('go').textContent='Старт'; $('demo').textContent='Демо-режим';
-    setStatus('остановлено',''); unlockScreen();
+    if(watchId!=null){navigator.geolocation.clearWatch(watchId);watchId=null;}
+    if(demoTimer){clearInterval(demoTimer);demoTimer=null;}
+    running=false;$('go').textContent='Старт';$('demo').textContent='Демо-режим';
+    setStatus('остановлено','');unlockScreen();save(true);
   }
 
-  // Демо: имитация взлёта, набора, крейсерского полёта и снижения
+  /* ---------- демо: перелёт Москва → выбранный пункт ---------- */
   function startDemo(){
-    stop(); S=fresh(); setStatus('демо','on'); msg('Демо-режим: данные имитируются, это не настоящий полёт.');
-    var t=0, lat=55.41, lon=37.90, hdg=60, alt=150, spd=0;
+    stop();newFlight();
+    if(!getDest()){destSel='KZN';syncDestUI();}
+    var dest=getDest(),pos={lat:55.9726,lon:37.4146},alt=150,spd=0,t=0,base=Date.now(),STEP=30;
+    setStatus('демо','on');msg('Демо-режим: данные имитируются (1 секунда = 30 секунд полёта).');
+    $('demo').textContent='Демо идёт';running=true;$('go').textContent='Стоп';
     demoTimer=setInterval(function(){
-      t+=1;
-      var targetSpd, targetAlt;
-      if(t<40){ targetSpd=260; targetAlt=150; }
-      else if(t<200){ targetSpd=800; targetAlt=11000; }
-      else if(t<320){ targetSpd=860; targetAlt=11000; }
-      else { targetSpd=300; targetAlt=500; }
-      spd += (targetSpd-spd)*0.03;
-      var climb = Math.max(-18,Math.min(18,(targetAlt-alt)*0.05));
-      alt += climb*3; // ускоренное время
-      hdg += Math.sin(t/40)*0.4;
-      var v = spd/3.6;
-      var step = v*3; // ускоренное время
-      var r=Math.PI/180;
-      lat += step*Math.cos(hdg*r)/111320;
-      lon += step*Math.sin(hdg*r)/(111320*Math.cos(lat*r));
-      update({lat:lat,lon:lon,alt:alt,speed:v,heading:(hdg+360)%360,acc:5,ts:Date.now()+t*3000});
+      t++;
+      var rem=haversine(pos,dest),hdg=bearing(pos,dest);
+      var targetSpd,targetAlt;
+      if(rem<150000){targetSpd=330;targetAlt=250;}else{targetSpd=850;targetAlt=11000;}
+      spd+=(targetSpd-spd)*0.18;
+      var rate=Math.max(-12,Math.min(12,(targetAlt-alt)/STEP));
+      alt=Math.max(0,alt+rate*STEP);
+      var step=spd/3.6*STEP;
+      if(step>rem)step=rem;
+      var f=rem>0?step/rem:0;
+      pos={lat:pos.lat+(dest.lat-pos.lat)*f,lon:pos.lon+(dest.lon-pos.lon)*f};
+      update({lat:pos.lat,lon:pos.lon,alt:alt,speed:spd/3.6,heading:hdg,acc:5,ts:base+t*STEP*1000});
+      if(haversine(pos,dest)<4000){stop();setStatus('демо завершено','');msg('Демо завершено: «самолёт» долетел до пункта назначения.');}
     },1000);
-    running=true; $('go').textContent='Стоп'; $('demo').textContent='Демо идёт';
   }
 
-  $('go').onclick=function(){ if(running){ stop(); } else { S=fresh(); startGPS(); } };
+  /* ---------- кнопки ---------- */
+  $('go').onclick=function(){if(running)stop();else startGPS();};
   $('demo').onclick=startDemo;
   $('units').onclick=function(){
-    aviation=!aviation; this.textContent='Единицы: '+(aviation?'авиац.':'метрич.');
-    if(S.last){ S.maxSpd=0; S.maxAlt=null; S.altHist=[]; update(S.last); }
-    $('vs').textContent='—';
+    aviation=!aviation;this.textContent='Единицы: '+(aviation?'авиац.':'метрич.');
+    $('vs').textContent='—';S.lastRem=null;render();
+  };
+  $('voice').onclick=function(){
+    voiceOn=!voiceOn;this.textContent='Голос: '+(voiceOn?'вкл':'выкл');this.className=voiceOn?'on':'';
+    if(voiceOn){
+      if(!('speechSynthesis' in window)){msg('Этот браузер не умеет озвучивать текст.',true);voiceOn=false;this.textContent='Голос: выкл';this.className='';return;}
+      say('Голосовые подсказки включены');
+    }else{try{window.speechSynthesis.cancel();}catch(e){}}
   };
   $('reset').onclick=function(){
-    S=fresh(); ['spd','alt','vs','hdg'].forEach(function(i){$(i).textContent='—'});
-    $('dist').textContent='0'; $('time').textContent='00:00:00'; $('spdSub').textContent='макс. —'; $('altSub').textContent='макс. —'; $('vsSub').innerHTML='&nbsp;'; $('pos').textContent='—'; $('acc').textContent='точность —'; $('hdgT').innerHTML='&nbsp;';
+    stop();newFlight();
+    try{localStorage.removeItem(STORE_KEY);}catch(e){}
+    ['spd','alt','vs','hdg'].forEach(function(i){$(i).textContent='—'});
+    $('dist').textContent='0';$('time').textContent='00:00:00';$('spdSub').textContent='макс. —';$('altSub').textContent='макс. —';
+    $('vsSub').innerHTML='&nbsp;';$('pos').textContent='—';$('acc').textContent='точность —';$('hdgT').innerHTML='&nbsp;';
+    $('vs').className='';setStatus('ожидание','');msg('Полёт сброшен. Пункт назначения сохранён.');
+    destSel=destSel;save(true);render();
   };
-  document.addEventListener('visibilitychange',function(){ if(!document.hidden && running) lockScreen(); });
+  document.addEventListener('visibilitychange',function(){if(!document.hidden&&running)lockScreen();});
+  window.addEventListener('resize',function(){drawMap();drawChart();});
+
+  /* ---------- запуск ---------- */
+  buildDest();
+  if(load()){
+    syncDestUI();recompute();render();
+    if(track.length)msg('Восстановлена запись полёта: '+track.length+' точек. «Старт» продолжит запись, «Сбросить полёт» начнёт заново.');
+  }else{render();}
+
+  if('serviceWorker' in navigator){try{navigator.serviceWorker.register('sw.js').catch(function(){});}catch(e){}}
 })();
 </script>
 </body>
