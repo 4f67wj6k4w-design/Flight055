@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0b1220">
+<title>Лётные данные</title>
+<style>
+  :root{--bg:#0b1220;--card:#131c2e;--line:#22304a;--tx:#e8eef9;--mut:#8ea0bf;--acc:#4cc2ff;--ok:#4ade80;--bad:#f87171}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;background:var(--bg);color:var(--tx);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+  body{padding:max(14px,env(safe-area-inset-top)) 14px max(18px,env(safe-area-inset-bottom));max-width:520px;margin:0 auto}
+  header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+  h1{font-size:18px;margin:0;font-weight:600}
+  .status{font-size:13px;color:var(--mut);display:flex;align-items:center;gap:6px}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--mut)}
+  .dot.on{background:var(--ok)}.dot.err{background:var(--bad)}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px}
+  .card.wide{grid-column:span 2}
+  .lbl{font-size:12px;color:var(--mut);text-transform:uppercase;letter-spacing:.06em}
+  .val{font-size:44px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1;margin-top:4px}
+  .card.wide .val{font-size:68px}
+  .unit{font-size:16px;color:var(--mut);font-weight:500;margin-left:4px}
+  .sub{font-size:13px;color:var(--mut);margin-top:2px;font-variant-numeric:tabular-nums}
+  .compass{display:flex;align-items:center;gap:14px}
+  .rose{width:84px;height:84px;flex:none}
+  .row{display:flex;gap:8px;margin-top:12px}
+  button{flex:1;background:var(--card);color:var(--tx);border:1px solid var(--line);border-radius:14px;padding:14px 8px;font-size:15px;font-weight:600}
+  button.primary{background:var(--acc);color:#04121f;border-color:var(--acc)}
+  button:active{opacity:.7}
+  .msg{margin-top:12px;font-size:13px;color:var(--mut);line-height:1.45}
+  .msg.err{color:var(--bad)}
+  .up{color:var(--ok)}.down{color:var(--bad)}
+</style>
+</head>
+<body>
+<header>
+  <h1>✈ Лётные данные</h1>
+  <div class="status"><span class="dot" id="dot"></span><span id="st">ожидание</span></div>
+</header>
+
+<div class="grid">
+  <div class="card wide">
+    <div class="lbl">Скорость</div>
+    <div class="val"><span id="spd">—</span><span class="unit" id="spdU">км/ч</span></div>
+    <div class="sub" id="spdSub">макс. —</div>
+  </div>
+  <div class="card wide">
+    <div class="lbl">Высота</div>
+    <div class="val"><span id="alt">—</span><span class="unit" id="altU">м</span></div>
+    <div class="sub" id="altSub">макс. —</div>
+  </div>
+  <div class="card">
+    <div class="lbl">Верт. скорость</div>
+    <div class="val" style="font-size:34px"><span id="vs">—</span><span class="unit" id="vsU">м/с</span></div>
+    <div class="sub" id="vsSub">&nbsp;</div>
+  </div>
+  <div class="card">
+    <div class="lbl">Пройдено</div>
+    <div class="val" style="font-size:34px"><span id="dist">0</span><span class="unit" id="distU">км</span></div>
+    <div class="sub" id="time">00:00:00</div>
+  </div>
+  <div class="card wide">
+    <div class="lbl">Курс</div>
+    <div class="compass">
+      <svg class="rose" viewBox="0 0 100 100">
+        <circle cx="50" cy="50" r="46" fill="none" stroke="#22304a" stroke-width="2"/>
+        <text x="50" y="14" text-anchor="middle" fill="#8ea0bf" font-size="10">С</text>
+        <text x="90" y="54" text-anchor="middle" fill="#8ea0bf" font-size="10">В</text>
+        <text x="50" y="96" text-anchor="middle" fill="#8ea0bf" font-size="10">Ю</text>
+        <text x="10" y="54" text-anchor="middle" fill="#8ea0bf" font-size="10">З</text>
+        <g id="needle" style="transform-origin:50px 50px;transition:transform .4s"><polygon points="50,20 56,52 44,52" fill="#4cc2ff"/><polygon points="50,80 56,52 44,52" fill="#22304a"/></g>
+      </svg>
+      <div>
+        <div class="val" style="font-size:44px"><span id="hdg">—</span><span class="unit">°</span></div>
+        <div class="sub" id="hdgT">&nbsp;</div>
+      </div>
+    </div>
+  </div>
+  <div class="card wide">
+    <div class="lbl">Координаты</div>
+    <div class="sub" style="font-size:16px;color:var(--tx);margin-top:6px" id="pos">—</div>
+    <div class="sub" id="acc">точность —</div>
+  </div>
+</div>
+
+<div class="row">
+  <button class="primary" id="go">Старт</button>
+  <button id="units">Единицы: метрич.</button>
+</div>
+<div class="row">
+  <button id="demo">Демо-режим</button>
+  <button id="reset">Сбросить</button>
+</div>
+<div class="msg" id="msg">Нажмите «Старт» и разрешите доступ к геолокации. В самолёте GPS работает в режиме полёта, лучше сидеть у окна.</div>
+
+<script>
+(function(){
+  var $ = function(id){return document.getElementById(id)};
+  var aviation = false, watchId = null, demoTimer = null, wake = null, running = false;
+  var S = null; // state
+
+  function fresh(){ return {maxSpd:0,maxAlt:null,dist:0,last:null,altHist:[],t0:null}; }
+  S = fresh();
+
+  function setStatus(txt, cls){ $('st').textContent = txt; $('dot').className = 'dot ' + (cls||''); }
+  function msg(txt, err){ var m = $('msg'); m.textContent = txt; m.className = 'msg' + (err?' err':''); }
+
+  function haversine(a,b){
+    var R=6371000, r=Math.PI/180;
+    var dLat=(b.lat-a.lat)*r, dLon=(b.lon-a.lon)*r;
+    var x=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(a.lat*r)*Math.cos(b.lat*r)*Math.sin(dLon/2)*Math.sin(dLon/2);
+    return 2*R*Math.asin(Math.sqrt(x));
+  }
+  function bearing(a,b){
+    var r=Math.PI/180, y=Math.sin((b.lon-a.lon)*r)*Math.cos(b.lat*r);
+    var x=Math.cos(a.lat*r)*Math.sin(b.lat*r)-Math.sin(a.lat*r)*Math.cos(b.lat*r)*Math.cos((b.lon-a.lon)*r);
+    return (Math.atan2(y,x)/r+360)%360;
+  }
+  function compassName(d){
+    var n=['С','СВ','В','ЮВ','Ю','ЮЗ','З','СЗ']; return n[Math.round(d/45)%8];
+  }
+  function fmtCoord(v,pos,neg){ return Math.abs(v).toFixed(4)+'° '+(v>=0?pos:neg); }
+
+  function update(p){
+    // p: {lat,lon,alt,speed(m/s)|null,heading|null,acc,altAcc,ts}
+    if(!S.t0) S.t0 = p.ts;
+    var spd = p.speed;
+    if(S.last){
+      var d = haversine(S.last,p), dt=(p.ts-S.last.ts)/1000;
+      if(dt>0){
+        if(spd==null || isNaN(spd)) spd = d/dt;
+        if(d>3) S.dist += d; // отсечь дрожание на месте
+        if(p.heading==null && d>5) p.heading = bearing(S.last,p);
+      }
+    }
+    S.last = p;
+
+    // скорость
+    if(spd!=null && !isNaN(spd)){
+      var v = aviation ? spd*1.943844 : spd*3.6;
+      if(v>S.maxSpd) S.maxSpd=v;
+      $('spd').textContent = Math.round(v);
+      $('spdSub').textContent = 'макс. '+Math.round(S.maxSpd)+' · '+(aviation? Math.round(spd*3.6)+' км/ч' : Math.round(spd*1.943844)+' уз');
+    }
+    $('spdU').textContent = aviation?'уз':'км/ч';
+
+    // высота
+    if(p.alt!=null && !isNaN(p.alt)){
+      var a = aviation ? p.alt*3.28084 : p.alt;
+      if(S.maxAlt==null || a>S.maxAlt) S.maxAlt=a;
+      $('alt').textContent = Math.round(a).toLocaleString('ru-RU');
+      $('altSub').textContent = 'макс. '+Math.round(S.maxAlt).toLocaleString('ru-RU')+' · '+(aviation? Math.round(p.alt).toLocaleString('ru-RU')+' м' : Math.round(p.alt*3.28084).toLocaleString('ru-RU')+' фт');
+      // вертикальная скорость по окну ~12 с
+      S.altHist.push({t:p.ts,a:p.alt});
+      while(S.altHist.length>1 && p.ts-S.altHist[0].t>12000) S.altHist.shift();
+      var f=S.altHist[0];
+      if(p.ts-f.t>=3000){
+        var vs=(p.alt-f.a)/((p.ts-f.t)/1000); // м/с
+        var shown = aviation ? vs*196.8504 : vs;
+        var el=$('vs');
+        el.textContent = (shown>0?'+':'')+(aviation?Math.round(shown):shown.toFixed(1));
+        el.className = Math.abs(vs)<0.3?'':(vs>0?'up':'down');
+        $('vsSub').textContent = Math.abs(vs)<0.3?'горизонтальный полёт':(vs>0?'набор':'снижение');
+      }
+    } else {
+      $('alt').textContent='—'; $('altSub').textContent='GPS не отдаёт высоту';
+    }
+    $('altU').textContent = aviation?'фт':'м';
+    $('vsU').textContent = aviation?'фт/мин':'м/с';
+
+    // курс
+    if(p.heading!=null && !isNaN(p.heading)){
+      $('hdg').textContent = Math.round(p.heading);
+      $('hdgT').textContent = compassName(p.heading);
+      $('needle').style.transform='rotate('+p.heading+'deg)';
+    }
+
+    // пройдено
+    var km = S.dist/1000;
+    $('dist').textContent = aviation ? (km/1.852).toFixed(1) : km.toFixed(1);
+    $('distU').textContent = aviation?'м. миль':'км';
+    var sec=Math.floor((p.ts-S.t0)/1000), h=Math.floor(sec/3600), m=Math.floor(sec%3600/60), s=sec%60;
+    $('time').textContent = [h,m,s].map(function(x){return String(x).padStart(2,'0')}).join(':');
+
+    $('pos').textContent = fmtCoord(p.lat,'с.ш.','ю.ш.')+'  '+fmtCoord(p.lon,'в.д.','з.д.');
+    $('acc').textContent = 'точность ±'+Math.round(p.acc||0)+' м';
+  }
+
+  function onPos(pos){
+    var c=pos.coords;
+    setStatus('GPS онлайн','on');
+    update({lat:c.latitude,lon:c.longitude,alt:c.altitude,speed:c.speed,heading:c.heading,acc:c.accuracy,altAcc:c.altitudeAccuracy,ts:pos.timestamp||Date.now()});
+  }
+  function onErr(e){
+    var t={1:'Доступ к геолокации запрещён. Разрешите его в настройках браузера для этого сайта.',2:'Позиция недоступна. Подойдите к окну: GPS плохо ловит внутри салона.',3:'Долго нет сигнала GPS. Подождите или подойдите к окну.'}[e.code]||e.message;
+    setStatus('нет сигнала','err'); msg(t,true);
+    if(e.code===1) stop();
+  }
+
+  async function lockScreen(){
+    try{ if('wakeLock' in navigator){ wake = await navigator.wakeLock.request('screen'); } }catch(e){}
+  }
+  function unlockScreen(){ try{ if(wake){ wake.release(); wake=null; } }catch(e){} }
+
+  function startGPS(){
+    if(!('geolocation' in navigator)){ msg('Этот браузер не поддерживает геолокацию.',true); return; }
+    if(!window.isSecureContext){ msg('Геолокация работает только по HTTPS. Откройте приложение по https-ссылке.',true); return; }
+    setStatus('ищу спутники…',''); msg('Ищу GPS, это может занять до минуты.');
+    watchId = navigator.geolocation.watchPosition(onPos,onErr,{enableHighAccuracy:true,maximumAge:0,timeout:30000});
+    running = true; $('go').textContent='Стоп'; lockScreen();
+  }
+  function stop(){
+    if(watchId!=null){ navigator.geolocation.clearWatch(watchId); watchId=null; }
+    if(demoTimer){ clearInterval(demoTimer); demoTimer=null; }
+    running=false; $('go').textContent='Старт'; $('demo').textContent='Демо-режим';
+    setStatus('остановлено',''); unlockScreen();
+  }
+
+  // Демо: имитация взлёта, набора, крейсерского полёта и снижения
+  function startDemo(){
+    stop(); S=fresh(); setStatus('демо','on'); msg('Демо-режим: данные имитируются, это не настоящий полёт.');
+    var t=0, lat=55.41, lon=37.90, hdg=60, alt=150, spd=0;
+    demoTimer=setInterval(function(){
+      t+=1;
+      var targetSpd, targetAlt;
+      if(t<40){ targetSpd=260; targetAlt=150; }
+      else if(t<200){ targetSpd=800; targetAlt=11000; }
+      else if(t<320){ targetSpd=860; targetAlt=11000; }
+      else { targetSpd=300; targetAlt=500; }
+      spd += (targetSpd-spd)*0.03;
+      var climb = Math.max(-18,Math.min(18,(targetAlt-alt)*0.05));
+      alt += climb*3; // ускоренное время
+      hdg += Math.sin(t/40)*0.4;
+      var v = spd/3.6;
+      var step = v*3; // ускоренное время
+      var r=Math.PI/180;
+      lat += step*Math.cos(hdg*r)/111320;
+      lon += step*Math.sin(hdg*r)/(111320*Math.cos(lat*r));
+      update({lat:lat,lon:lon,alt:alt,speed:v,heading:(hdg+360)%360,acc:5,ts:Date.now()+t*3000});
+    },1000);
+    running=true; $('go').textContent='Стоп'; $('demo').textContent='Демо идёт';
+  }
+
+  $('go').onclick=function(){ if(running){ stop(); } else { S=fresh(); startGPS(); } };
+  $('demo').onclick=startDemo;
+  $('units').onclick=function(){
+    aviation=!aviation; this.textContent='Единицы: '+(aviation?'авиац.':'метрич.');
+    if(S.last){ S.maxSpd=0; S.maxAlt=null; S.altHist=[]; update(S.last); }
+    $('vs').textContent='—';
+  };
+  $('reset').onclick=function(){
+    S=fresh(); ['spd','alt','vs','hdg'].forEach(function(i){$(i).textContent='—'});
+    $('dist').textContent='0'; $('time').textContent='00:00:00'; $('spdSub').textContent='макс. —'; $('altSub').textContent='макс. —'; $('vsSub').innerHTML='&nbsp;'; $('pos').textContent='—'; $('acc').textContent='точность —'; $('hdgT').innerHTML='&nbsp;';
+  };
+  document.addEventListener('visibilitychange',function(){ if(!document.hidden && running) lockScreen(); });
+})();
+</script>
+</body>
+</html>
